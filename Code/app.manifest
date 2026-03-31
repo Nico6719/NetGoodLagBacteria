@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <assemblyIdentity version="1.0.0.0" processorArchitecture="*"
+    name="NetGoodLagBacteria" type="win32"/>
+
+  <!-- Enable XP visual styles -->
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity type="win32"
+        name="Microsoft.Windows.Common-Controls"
+        version="6.0.0.0"
+        processorArchitecture="*"
+        publicKeyToken="6595b64144ccf1df"
+        language="*"/>
+    </dependentAssembly>
+  </dependency>
+
+  <!-- DPI Awareness: DPI Unaware (intentional).
+       Diagnostics on Win11 26H1 Canary (Build 28020) show that even when
+       System Aware is declared in the manifest, the process runs as UNAWARE
+       (System DPI=96 reported for all contexts). This means Windows is
+       virtualising the process regardless of the manifest declaration.
+       In UNAWARE mode, EnumDisplayMonitors rcMonitor coords and GetDC(NULL)
+       drawing coords are in the same logical space (96-DPI baseline), so
+       all GDI drawing lands exactly where rcMonitor says it should.
+       Declaring Unaware explicitly ensures consistent behaviour across
+       all Windows versions including Insider builds. -->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">
+        Unaware
+      </dpiAwareness>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">
+        false
+      </dpiAware>
+    </windowsSettings>
+  </application>
+
+  <!-- UAC: run as invoker (no elevation required) -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+</assembly>

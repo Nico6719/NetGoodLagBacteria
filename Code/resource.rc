@@ -1,0 +1,3 @@
+// Embed manifest for DPI awareness and XP visual styles
+#include <windows.h>
+1 RT_MANIFEST "app.manifest"
