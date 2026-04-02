@@ -1,0 +1,138 @@
+name: Build NetGoodLagBacteria
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags:
+      - "v*"          # 推送 tag（如 v12.1）时触发发布
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    name: Cross-compile for Windows (MinGW-w64)
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. 检出代码 ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. 安装 MinGW-w64 交叉编译工具链 ────────────────────────────────────
+      - name: Install MinGW-w64 toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            gcc-mingw-w64-x86-64 \
+            g++-mingw-w64-x86-64 \
+            binutils-mingw-w64-x86-64 \
+            mingw-w64-tools
+
+      # ── 3. 安装 Python + Pillow（用于生成 ICO 图标）────────────────────────
+      - name: Install Python dependencies
+        run: pip install pillow
+
+      # ── 4. 生成 app.ico（如果仓库中没有预先提交）────────────────────────────
+      - name: Generate app.ico from rd_logo.png
+        run: |
+          if [ ! -f app.ico ]; then
+            python3 - <<'EOF'
+          from PIL import Image
+          img = Image.open("rd_logo.png").convert("RGBA")
+          sizes = [(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)]
+          imgs = [img.resize(s, Image.LANCZOS) for s in sizes]
+          imgs[0].save("app.ico", format="ICO",
+                       sizes=[(i.width, i.height) for i in imgs],
+                       append_images=imgs[1:])
+          print("app.ico generated")
+          EOF
+          else
+            echo "app.ico already exists, skipping generation"
+          fi
+
+      # ── 5. 编译资源文件（图标 + Manifest）──────────────────────────────────
+      - name: Compile resource file
+        run: |
+          x86_64-w64-mingw32-windres resource.rc -O coff -o resource.res
+
+      # ── 6. 编译主程序（静态链接，无 CMD 窗口）──────────────────────────────
+      - name: Compile executable
+        run: |
+          x86_64-w64-mingw32-g++ \
+            -DCLEAN -DUNICODE -D_UNICODE \
+            -std=c++14 -O2 -mwindows \
+            -static-libgcc -static-libstdc++ -static \
+            main.cpp payloads.cpp utils.cpp data.cpp resource.res \
+            -o NetGoodLagBacteria_Clean_User_v12.exe \
+            -lgdi32 -lmsimg32 -luser32 -lkernel32 -lwinmm -lole32 -lshlwapi \
+            -lpsapi -lcomctl32 -lcomdlg32 -ldwmapi -luxtheme \
+            -lshell32 -ladvapi32 -luuid -loleaut32
+
+      # ── 7. 验证产物 ──────────────────────────────────────────────────────────
+      - name: Verify build output
+        run: |
+          ls -lh NetGoodLagBacteria_Clean_User_v12.exe
+          file NetGoodLagBacteria_Clean_User_v12.exe
+
+      # ── 8. 上传 Artifact（每次构建都可下载）────────────────────────────────
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetGoodLagBacteria-v12-${{ github.sha }}
+          path: NetGoodLagBacteria_Clean_User_v12.exe
+          retention-days: 30
+
+  # ── 发布 Release（仅在推送 tag 时触发）──────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write   # 允许创建 Release 和上传附件
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 下载上一个 job 编译好的 .exe
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: NetGoodLagBacteria-v12-${{ github.sha }}
+
+      # 打包源码（不含 .git 目录）
+      - name: Package source code
+        run: |
+          zip -r NetGoodLagBacteria_Source_${{ github.ref_name }}.zip . \
+            --exclude ".git/*" \
+            --exclude "*.exe" \
+            --exclude "*.zip"
+
+      # 创建 Release 并上传 .exe 和源码包
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "网好卡菌 ${{ github.ref_name }}"
+          body: |
+            ## 网好卡菌 ${{ github.ref_name }}
+
+            自动构建版本，由 GitHub Actions 交叉编译生成。
+
+            ### 下载说明
+            - **`NetGoodLagBacteria_Clean_User_v12.exe`** — 可执行文件，直接运行即可（Windows 10/11）
+            - **`NetGoodLagBacteria_Source_*.zip`** — 完整源代码包
+
+            ### 注意
+            Windows Defender 可能会对本程序报警，这是预期行为。
+            请参阅 `README.md` 了解详情。
+
+            ---
+            *Made By Nico6719 & Manus*
+          files: |
+            NetGoodLagBacteria_Clean_User_v12.exe
+            NetGoodLagBacteria_Source_${{ github.ref_name }}.zip
+          draft: false
+          prerelease: false
