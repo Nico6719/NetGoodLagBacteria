@@ -101,3 +101,40 @@ int payloadMyInvert(PAYLOADFUNC) {
 
 ---
 *Happy Coding!*
+
+---
+
+## ⚙️ GitHub Actions 自动构建 (CI/CD)
+
+项目根目录下的 `.github/workflows/build.yml` 配置了完整的自动构建流水线，无需在本地安装任何工具链即可通过 GitHub 云端完成编译。
+
+### 触发条件
+
+| 触发事件 | 行为 |
+| :--- | :--- |
+| 向 `main` / `master` 分支推送代码 | 自动编译，产物作为 Artifact 保留 30 天 |
+| 创建 Pull Request | 自动编译，验证代码可正常构建 |
+| 推送 `v*` 格式的 Tag（如 `v12.1`） | 编译 + 自动创建 GitHub Release，附带 .exe 和源码包 |
+| 手动触发（workflow_dispatch） | 在 Actions 页面点击 "Run workflow" 即可 |
+
+### 发布新版本的完整流程
+
+```bash
+# 1. 提交所有改动
+git add .
+git commit -m "feat: 新增某某特效"
+git push origin main
+
+# 2. 打 Tag 触发自动发布
+git tag v12.1
+git push origin v12.1
+# → Actions 自动编译并在 Releases 页面发布带附件的正式版本
+```
+
+### 流水线各阶段说明
+
+`build` job 在 `ubuntu-latest` 上运行，依次执行以下步骤：安装 MinGW-w64 交叉编译工具链、用 Python Pillow 从 `rd_logo.png` 生成多尺寸 `app.ico`、编译资源文件（`windres`）、静态链接编译主程序，最后将 `.exe` 作为 Artifact 上传。
+
+`release` job 仅在推送 Tag 时运行，它会下载 `build` job 的产物，打包源码为 `.zip`，然后调用 `softprops/action-gh-release` 自动创建 Release 页面并上传两个附件。
+
+> **权限说明**：`release` job 需要 `contents: write` 权限才能创建 Release。如果你的仓库是 Fork 或组织仓库，请在 Settings → Actions → General → Workflow permissions 中确认已开启 "Read and write permissions"。
